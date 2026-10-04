@@ -1,6 +1,8 @@
 {
-  "name": "Aura Wealth | Portfolio & Mandate Engine",
+  "name": "FinLit Co-Pilot",
   "description": "Institutional-grade wealth management, portfolio health monitoring, smart SIP behavioral friction engine, and Gopal AI financial co-pilot.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
