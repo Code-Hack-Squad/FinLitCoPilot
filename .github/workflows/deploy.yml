@@ -32,17 +32,28 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
+      - name: Setup GitHub Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
       - name: Build and export static Next.js site
         env:
+          NODE_ENV: production
           GITHUB_PAGES: 'true'
-        run: npm run build
-
-      - name: Setup GitHub Pages
-        uses: actions/configure-pages@v5
+          BASE_PATH: ${{ steps.pages.outputs.base_path }}
+        run: |
+          npm run build
+          # Ensure .nojekyll exists so GitHub Pages does not ignore _next assets
+          touch ./out/.nojekyll
+          # Ensure 404 fallback exists for client-side routing
+          if [ -f ./out/index.html ] && [ ! -f ./out/404.html ]; then
+            cp ./out/index.html ./out/404.html
+          fi
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
