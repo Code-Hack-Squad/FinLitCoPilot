@@ -259,7 +259,7 @@ Follow these steps to run the FinLit Co-Pilot prototype locally.
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/CodehackSquad/FinLitCoPilot.git
+git clone https://github.com/Code-Hack-Squad/FinLitCoPilot.git
 cd FinLitCoPilot
 ```
 
