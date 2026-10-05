@@ -1,5 +1,7 @@
 <div align="center">
 
+### 🌐 [Live Web App →](https://finlit-copilot.vercel.app/)
+
 ---
 
 ## ⚠️ The Problem: The Cost of Emotional Investing
