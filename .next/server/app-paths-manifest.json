@@ -1,0 +1,7 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/gopal/withdraw/route": "app/api/gopal/withdraw/route.js",
+  "/api/gopal/intervene/route": "app/api/gopal/intervene/route.js",
+  "/api/gopal/chat/route": "app/api/gopal/chat/route.js",
+  "/page": "app/page.js"
+}

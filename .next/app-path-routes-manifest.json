@@ -1,0 +1,7 @@
+{
+  "/_not-found/page": "/_not-found",
+  "/api/gopal/withdraw/route": "/api/gopal/withdraw",
+  "/api/gopal/intervene/route": "/api/gopal/intervene",
+  "/api/gopal/chat/route": "/api/gopal/chat",
+  "/page": "/"
+}

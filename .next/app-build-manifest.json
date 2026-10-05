@@ -1,0 +1,48 @@
+{
+  "pages": {
+    "/_not-found/page": [
+      "static/chunks/webpack-2bc309fe597aff29.js",
+      "static/chunks/4bd1b696-c023c6e3521b1417.js",
+      "static/chunks/255-0c97713bcfa8ac3e.js",
+      "static/chunks/main-app-3a6528969f1e0e41.js",
+      "static/chunks/app/_not-found/page-782a66cc833b53b3.js"
+    ],
+    "/layout": [
+      "static/chunks/webpack-2bc309fe597aff29.js",
+      "static/chunks/4bd1b696-c023c6e3521b1417.js",
+      "static/chunks/255-0c97713bcfa8ac3e.js",
+      "static/chunks/main-app-3a6528969f1e0e41.js",
+      "static/css/b1d4bc2e67c345c7.css",
+      "static/chunks/app/layout-97b243f9244572b6.js"
+    ],
+    "/api/gopal/withdraw/route": [
+      "static/chunks/webpack-2bc309fe597aff29.js",
+      "static/chunks/4bd1b696-c023c6e3521b1417.js",
+      "static/chunks/255-0c97713bcfa8ac3e.js",
+      "static/chunks/main-app-3a6528969f1e0e41.js",
+      "static/chunks/app/api/gopal/withdraw/route-63cdbe62d2de0d16.js"
+    ],
+    "/api/gopal/intervene/route": [
+      "static/chunks/webpack-2bc309fe597aff29.js",
+      "static/chunks/4bd1b696-c023c6e3521b1417.js",
+      "static/chunks/255-0c97713bcfa8ac3e.js",
+      "static/chunks/main-app-3a6528969f1e0e41.js",
+      "static/chunks/app/api/gopal/intervene/route-63cdbe62d2de0d16.js"
+    ],
+    "/api/gopal/chat/route": [
+      "static/chunks/webpack-2bc309fe597aff29.js",
+      "static/chunks/4bd1b696-c023c6e3521b1417.js",
+      "static/chunks/255-0c97713bcfa8ac3e.js",
+      "static/chunks/main-app-3a6528969f1e0e41.js",
+      "static/chunks/app/api/gopal/chat/route-63cdbe62d2de0d16.js"
+    ],
+    "/page": [
+      "static/chunks/webpack-2bc309fe597aff29.js",
+      "static/chunks/4bd1b696-c023c6e3521b1417.js",
+      "static/chunks/255-0c97713bcfa8ac3e.js",
+      "static/chunks/main-app-3a6528969f1e0e41.js",
+      "static/chunks/504-3ef0220f32a6ea8b.js",
+      "static/chunks/app/page-71629239db4510ab.js"
+    ]
+  }
+}
