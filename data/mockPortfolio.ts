@@ -6,7 +6,7 @@ export const initialPortfolioSummary: PortfolioSummary = {
   oneYearGain: 245000,
   oneYearGainPercent: 15.3,
   portfolioXIRR: 17.8,
-  activeMandatesCount: 2,
+  activeMandatesCount: 4,
   healthScore: 88,
   driftPercentage: 2.1,
   assetAllocation: {
@@ -267,7 +267,7 @@ export const initialGoals: FinancialGoal[] = [
     id: 'goal-downpay',
     title: 'Home Down Payment',
     category: 'Real Estate',
-    targetYear: 2026,
+    targetYear: 2028,
     targetAmount: 1500000, // 15 Lakhs
     currentAmount: 275200,
     monthlySIP: 8000,

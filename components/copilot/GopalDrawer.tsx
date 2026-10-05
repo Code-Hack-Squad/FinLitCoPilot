@@ -41,13 +41,13 @@ export const GopalDrawer: React.FC<GopalDrawerProps> = ({
   holdings,
   activeTab,
 }) => {
-  const [messages, setMessages] = useState<Message[]>([
+  const [messages, setMessages] = useState<Message[]>(() => [
     {
       id: 'msg-init',
       sender: 'gopal',
       text: `Hello Rahul. I'm Gopal, your autonomous SEBI-compliant wealth co-pilot. 
 
-Your portfolio health is **88/100**. Overall asset allocation shows Equity (74%), Debt (21%), and Gold (5%). All active NPCI mandates are verified. 
+Your portfolio health is **${summary.healthScore}/100**. Overall asset allocation shows Equity (${summary.assetAllocation.equity}%), Debt (${summary.assetAllocation.debt}%), and Gold (${summary.assetAllocation.gold}%). ${summary.activeMandatesCount} active NPCI mandates verified. 
 
 How can I assist your portfolio audit today?`,
       timestamp: 'Just now',

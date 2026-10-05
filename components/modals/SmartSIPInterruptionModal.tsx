@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { FundHolding } from '@/types';
-import { formatINR, calculateSIPPauseImpact } from '@/lib/formatters';
+import React, { useState } from "react";
+import { FundHolding } from "@/types";
+import { formatINR, calculateSIPPauseImpact } from "@/lib/formatters";
 import {
   ChevronLeft,
   CheckCircle2,
@@ -15,38 +15,42 @@ import {
   Building,
   Sliders,
   Check,
-} from 'lucide-react';
-import { haptics } from '@/lib/haptics';
+} from "lucide-react";
+import { haptics } from "@/lib/haptics";
 
 interface SmartSIPInterruptionModalProps {
   fund: FundHolding | null;
   onClose: () => void;
-  onConfirmPause: (fundId: string, pauseMonths: number, restartDate: string) => void;
+  onConfirmPause: (
+    fundId: string,
+    pauseMonths: number,
+    restartDate: string,
+  ) => void;
   onApplyStepDown: (fundId: string, newAmount: number) => void;
   onOpenGopalChat?: () => void;
 }
 
-export const SmartSIPInterruptionModal: React.FC<SmartSIPInterruptionModalProps> = ({
-  fund,
-  onClose,
-  onConfirmPause,
-  onApplyStepDown,
-  onOpenGopalChat,
-}) => {
+export const SmartSIPInterruptionModal: React.FC<
+  SmartSIPInterruptionModalProps
+> = ({ fund, onClose, onConfirmPause, onApplyStepDown, onOpenGopalChat }) => {
   if (!fund) return null;
 
   // View phase:
   // 'config' = Screen 1 (Duration & Reason matching Image 2)
   // 'gopal_review' = Screen 2 (Gopal steps in to show impact and alternatives)
   // 'success' = Success state
-  const [phase, setPhase] = useState<'config' | 'gopal_review' | 'success'>('config');
+  const [phase, setPhase] = useState<"config" | "gopal_review" | "success">(
+    "config",
+  );
 
   const [selectedDuration, setSelectedDuration] = useState<number>(3); // 1, 3, 6, custom
   const [isCustom, setIsCustom] = useState<boolean>(false);
   const [customMonths, setCustomMonths] = useState<number>(4);
-  const [selectedReason, setSelectedReason] = useState<string>('Cash crunch');
-  const [stepDownVal, setStepDownVal] = useState<number>(5000);
+  const [selectedReason, setSelectedReason] = useState<string>("Cash crunch");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [aiAuditText, setAiAuditText] = useState<string>("");
+  const [isFetchingAudit, setIsFetchingAudit] = useState<boolean>(false);
+  const [aiRecommendedAction, setAiRecommendedAction] = useState<string>("");
 
   const activeMonths = isCustom ? customMonths : selectedDuration;
   const currentSIP = fund.mandate.sipAmount;
@@ -55,7 +59,11 @@ export const SmartSIPInterruptionModal: React.FC<SmartSIPInterruptionModalProps>
   const getCalculatedRestartDate = (months: number) => {
     const d = new Date();
     d.setMonth(d.getMonth() + months);
-    return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    return d.toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
   };
 
   const restartDate = getCalculatedRestartDate(activeMonths);
@@ -66,26 +74,60 @@ export const SmartSIPInterruptionModal: React.FC<SmartSIPInterruptionModalProps>
     activeMonths,
     fund.xirr || 15.0,
     10,
-    fund.currentNav
+    fund.currentNav,
   );
 
-  const handleProceedToGopalReview = () => {
-    haptics.tap('light');
-    setPhase('gopal_review');
+  const suggestedStepDown = Math.max(
+    500,
+    Math.round((currentSIP * 0.33) / 100) * 100,
+  );
+
+  const handleProceedToGopalReview = async () => {
+    haptics.tap("light");
+    setPhase("gopal_review");
+    setIsFetchingAudit(true);
+
+    try {
+      const response = await fetch("/api/gopal/intervene", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userName: "Rahul",
+          reason: selectedReason,
+          pauseMonths: activeMonths,
+          fund: fund,
+          impact: {
+            shortfall: impact.compoundedShortfall,
+            unitsMissed: impact.unitsMissed,
+          },
+        }),
+      });
+      const data = await response.json();
+      setAiAuditText(data.auditText || "");
+      setAiRecommendedAction(data.recommendedAction || "");
+    } catch (error) {
+      console.error(error);
+      setAiAuditText(
+        "We noticed an interruption. Please remember that stopping your SIP leads to a projected compounding shortfall. Consider stepping down instead.",
+      );
+      setAiRecommendedAction("step_down");
+    } finally {
+      setIsFetchingAudit(false);
+    }
   };
 
   const handleExecuteConfirmedPause = () => {
-    haptics.tap('medium');
+    haptics.tap("medium");
     setIsSubmitting(true);
     setTimeout(() => {
       setIsSubmitting(false);
-      setPhase('success');
+      setPhase("success");
       onConfirmPause(fund.id, activeMonths, restartDate);
     }, 600);
   };
 
   const handleExecuteStepDown = (amount: number) => {
-    haptics.tap('medium');
+    haptics.tap("medium");
     onApplyStepDown(fund.id, amount);
     onClose();
   };
@@ -97,9 +139,9 @@ export const SmartSIPInterruptionModal: React.FC<SmartSIPInterruptionModalProps>
         <div className="p-4 sm:p-5 flex items-center justify-between border-b border-white/5 sticky top-0 bg-[#0B0F15]/95 backdrop-blur-md z-10">
           <button
             onClick={() => {
-              haptics.tap('light');
-              if (phase === 'gopal_review') {
-                setPhase('config');
+              haptics.tap("light");
+              if (phase === "gopal_review") {
+                setPhase("config");
               } else {
                 onClose();
               }
@@ -113,18 +155,37 @@ export const SmartSIPInterruptionModal: React.FC<SmartSIPInterruptionModalProps>
           {/* Logo Badge */}
           <div className="px-2.5 py-1 rounded-lg bg-[#121820] border border-white/10 flex items-center gap-1.5 shadow-xs">
             <div className="w-4 h-4 rounded bg-blue-600/20 text-[#00DF8F] flex items-center justify-center text-[10px]">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
                 <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
               </svg>
             </div>
-            <span className="text-[10px] font-bold font-mono text-white uppercase">FinLit Co-Pilot</span>
+            <span className="text-[10px] font-bold font-mono text-white uppercase">
+              FinLit Co-Pilot
+            </span>
           </div>
 
           {/* User Profile Avatar Placeholder */}
           <div className="relative">
             <div className="w-8 h-8 rounded-full bg-slate-800 border border-white/15 flex items-center justify-center text-slate-300 shadow-xs overflow-hidden">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-slate-400">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                className="text-slate-400"
+              >
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                 <circle cx="12" cy="7" r="4" />
               </svg>
@@ -134,7 +195,7 @@ export const SmartSIPInterruptionModal: React.FC<SmartSIPInterruptionModalProps>
         </div>
 
         {/* PHASE 1: CONFIGURATION (Matching Image 2) */}
-        {phase === 'config' && (
+        {phase === "config" && (
           <div className="p-4 sm:p-6 space-y-5">
             {/* Title & Subtitle */}
             <div>
@@ -142,14 +203,16 @@ export const SmartSIPInterruptionModal: React.FC<SmartSIPInterruptionModalProps>
                 Pause SIP Mandate
               </h1>
               <div className="text-xs text-slate-400 font-mono mt-0.5">
-                {fund.name.split('-')[0].trim()} • {formatINR(currentSIP)}/mo
+                {fund.name.split("-")[0].trim()} • {formatINR(currentSIP)}/mo
               </div>
             </div>
 
             {/* Zero Penalty Notice Banner */}
             <div className="p-3 rounded-xl bg-[#0B252E] text-[#38BDF8] border border-[#38BDF8]/20 flex items-center gap-2 text-xs font-mono">
               <CheckCircle2 className="w-4 h-4 shrink-0 text-[#38BDF8]" />
-              <span>Zero penalty • Units continue compounding uninterrupted</span>
+              <span>
+                Zero penalty • Units continue compounding uninterrupted
+              </span>
             </div>
 
             {/* Section: Select Pause Duration */}
@@ -162,22 +225,30 @@ export const SmartSIPInterruptionModal: React.FC<SmartSIPInterruptionModalProps>
                 {/* Option 1: 1 Month (Quick Skip) */}
                 <div
                   onClick={() => {
-                    haptics.tap('light');
+                    haptics.tap("light");
                     setIsCustom(false);
                     setSelectedDuration(1);
                   }}
                   className={`p-4 flex items-center justify-between gap-3 cursor-pointer hover:bg-white/[0.02] transition-colors ${
-                    !isCustom && selectedDuration === 1 ? 'bg-white/[0.04]' : ''
+                    !isCustom && selectedDuration === 1 ? "bg-white/[0.04]" : ""
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
-                      !isCustom && selectedDuration === 1 ? 'border-[#38BDF8] bg-[#38BDF8]' : 'border-slate-500'
-                    }`}>
-                      {!isCustom && selectedDuration === 1 && <span className="w-1.5 h-1.5 rounded-full bg-[#0B0F15]" />}
+                    <div
+                      className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                        !isCustom && selectedDuration === 1
+                          ? "border-[#38BDF8] bg-[#38BDF8]"
+                          : "border-slate-500"
+                      }`}
+                    >
+                      {!isCustom && selectedDuration === 1 && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#0B0F15]" />
+                      )}
                     </div>
                     <div>
-                      <div className="text-xs font-semibold text-white">1 Month (Quick Skip)</div>
+                      <div className="text-xs font-semibold text-white">
+                        1 Month (Quick Skip)
+                      </div>
                       <div className="text-[11px] text-slate-400 font-mono mt-0.5">
                         Skips next installment on {getCalculatedRestartDate(1)}
                       </div>
@@ -191,24 +262,33 @@ export const SmartSIPInterruptionModal: React.FC<SmartSIPInterruptionModalProps>
                 {/* Option 2: 3 Months (Recommended) */}
                 <div
                   onClick={() => {
-                    haptics.tap('light');
+                    haptics.tap("light");
                     setIsCustom(false);
                     setSelectedDuration(3);
                   }}
                   className={`p-4 flex items-center justify-between gap-3 cursor-pointer hover:bg-white/[0.02] transition-colors ${
-                    !isCustom && selectedDuration === 3 ? 'bg-white/[0.04]' : ''
+                    !isCustom && selectedDuration === 3 ? "bg-white/[0.04]" : ""
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
-                      !isCustom && selectedDuration === 3 ? 'border-[#38BDF8] bg-[#38BDF8]' : 'border-slate-500'
-                    }`}>
-                      {!isCustom && selectedDuration === 3 && <span className="w-1.5 h-1.5 rounded-full bg-[#0B0F15]" />}
+                    <div
+                      className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                        !isCustom && selectedDuration === 3
+                          ? "border-[#38BDF8] bg-[#38BDF8]"
+                          : "border-slate-500"
+                      }`}
+                    >
+                      {!isCustom && selectedDuration === 3 && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#0B0F15]" />
+                      )}
                     </div>
                     <div>
-                      <div className="text-xs font-semibold text-white">3 Months</div>
+                      <div className="text-xs font-semibold text-white">
+                        3 Months
+                      </div>
                       <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                        Auto-resumes {getCalculatedRestartDate(3)} • Best for cash-flow buffer
+                        Auto-resumes {getCalculatedRestartDate(3)} • Best for
+                        cash-flow buffer
                       </div>
                     </div>
                   </div>
@@ -220,24 +300,33 @@ export const SmartSIPInterruptionModal: React.FC<SmartSIPInterruptionModalProps>
                 {/* Option 3: 6 Months */}
                 <div
                   onClick={() => {
-                    haptics.tap('light');
+                    haptics.tap("light");
                     setIsCustom(false);
                     setSelectedDuration(6);
                   }}
                   className={`p-4 flex items-center justify-between gap-3 cursor-pointer hover:bg-white/[0.02] transition-colors ${
-                    !isCustom && selectedDuration === 6 ? 'bg-white/[0.04]' : ''
+                    !isCustom && selectedDuration === 6 ? "bg-white/[0.04]" : ""
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
-                      !isCustom && selectedDuration === 6 ? 'border-[#38BDF8] bg-[#38BDF8]' : 'border-slate-500'
-                    }`}>
-                      {!isCustom && selectedDuration === 6 && <span className="w-1.5 h-1.5 rounded-full bg-[#0B0F15]" />}
+                    <div
+                      className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                        !isCustom && selectedDuration === 6
+                          ? "border-[#38BDF8] bg-[#38BDF8]"
+                          : "border-slate-500"
+                      }`}
+                    >
+                      {!isCustom && selectedDuration === 6 && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#0B0F15]" />
+                      )}
                     </div>
                     <div>
-                      <div className="text-xs font-semibold text-white">6 Months</div>
+                      <div className="text-xs font-semibold text-white">
+                        6 Months
+                      </div>
                       <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                        Extended suspension • Auto-resumes {getCalculatedRestartDate(6)}
+                        Extended suspension • Auto-resumes{" "}
+                        {getCalculatedRestartDate(6)}
                       </div>
                     </div>
                   </div>
@@ -246,23 +335,33 @@ export const SmartSIPInterruptionModal: React.FC<SmartSIPInterruptionModalProps>
                 {/* Option 4: Custom Duration */}
                 <div
                   onClick={() => {
-                    haptics.tap('light');
+                    haptics.tap("light");
                     setIsCustom(true);
                   }}
                   className={`p-4 flex items-center justify-between gap-3 cursor-pointer hover:bg-white/[0.02] transition-colors ${
-                    isCustom ? 'bg-white/[0.04]' : ''
+                    isCustom ? "bg-white/[0.04]" : ""
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
-                      isCustom ? 'border-[#38BDF8] bg-[#38BDF8]' : 'border-slate-500'
-                    }`}>
-                      {isCustom && <span className="w-1.5 h-1.5 rounded-full bg-[#0B0F15]" />}
+                    <div
+                      className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                        isCustom
+                          ? "border-[#38BDF8] bg-[#38BDF8]"
+                          : "border-slate-500"
+                      }`}
+                    >
+                      {isCustom && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#0B0F15]" />
+                      )}
                     </div>
                     <div>
-                      <div className="text-xs font-semibold text-white">Custom Duration</div>
+                      <div className="text-xs font-semibold text-white">
+                        Custom Duration
+                      </div>
                       <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                        {isCustom ? `${customMonths} Months selected` : 'Choose 1 to 12 months'}
+                        {isCustom
+                          ? `${customMonths} Months selected`
+                          : "Choose 1 to 12 months"}
                       </div>
                     </div>
                   </div>
@@ -275,7 +374,9 @@ export const SmartSIPInterruptionModal: React.FC<SmartSIPInterruptionModalProps>
                 <div className="p-3 bg-[#121820] rounded-xl border border-white/10 space-y-2">
                   <div className="flex justify-between text-xs font-mono">
                     <span className="text-slate-400">Duration:</span>
-                    <strong className="text-[#38BDF8] font-bold">{customMonths} Months</strong>
+                    <strong className="text-[#38BDF8] font-bold">
+                      {customMonths} Months
+                    </strong>
                   </div>
                   <input
                     type="range"
@@ -298,23 +399,33 @@ export const SmartSIPInterruptionModal: React.FC<SmartSIPInterruptionModalProps>
             {/* Section: Reason for Pausing (Optional) */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-white">Reason for Pausing</label>
-                <span className="text-[10px] text-slate-500 font-mono">Optional</span>
+                <label className="text-xs font-semibold text-white">
+                  Reason for Pausing
+                </label>
+                <span className="text-[10px] text-slate-500 font-mono">
+                  Optional
+                </span>
               </div>
               <div className="flex flex-wrap gap-2">
-                {['Market volatility', 'Cash crunch', 'Urgent expense', 'Manual later', 'Other'].map((reason) => {
+                {[
+                  "Market volatility",
+                  "Cash crunch",
+                  "Urgent expense",
+                  "Manual later",
+                  "Other",
+                ].map((reason) => {
                   const isSelected = selectedReason === reason;
                   return (
                     <button
                       key={reason}
                       onClick={() => {
-                        haptics.tap('light');
+                        haptics.tap("light");
                         setSelectedReason(reason);
                       }}
                       className={`px-3 py-1.5 rounded-full text-xs font-mono transition-colors cursor-pointer ${
                         isSelected
-                          ? 'bg-white/15 text-white border border-white/30'
-                          : 'bg-[#121820] text-slate-400 border border-white/10 hover:text-white'
+                          ? "bg-white/15 text-white border border-white/30"
+                          : "bg-[#121820] text-slate-400 border border-white/10 hover:text-white"
                       }`}
                     >
                       {reason}
@@ -340,7 +451,15 @@ export const SmartSIPInterruptionModal: React.FC<SmartSIPInterruptionModalProps>
               {/* Floating Gopal Avatar badge */}
               <div className="absolute -top-6 right-2 w-10 h-10 rounded-full bg-[#121820] border border-white/20 flex items-center justify-center shadow-lg">
                 <div className="relative">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-slate-300">
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    className="text-slate-300"
+                  >
                     <rect x="3" y="11" width="18" height="10" rx="3" />
                     <circle cx="9" cy="16" r="1.5" fill="currentColor" />
                     <circle cx="15" cy="16" r="1.5" fill="currentColor" />
@@ -355,13 +474,21 @@ export const SmartSIPInterruptionModal: React.FC<SmartSIPInterruptionModalProps>
         )}
 
         {/* PHASE 2: GOPAL STEPS IN (Interactive AI Review & Alternatives) */}
-        {phase === 'gopal_review' && (
+        {phase === "gopal_review" && (
           <div className="p-4 sm:p-6 space-y-5">
             {/* Gopal Header Callout */}
             <div className="p-4 rounded-2xl bg-[#121820] border border-[#38BDF8]/30 space-y-3">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-slate-800 border border-white/20 flex items-center justify-center text-slate-200 shrink-0 relative">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-slate-300">
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    className="text-slate-300"
+                  >
                     <rect x="3" y="11" width="18" height="10" rx="3" />
                     <circle cx="9" cy="16" r="1.5" fill="currentColor" />
                     <circle cx="15" cy="16" r="1.5" fill="currentColor" />
@@ -372,7 +499,9 @@ export const SmartSIPInterruptionModal: React.FC<SmartSIPInterruptionModalProps>
                 </div>
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <h2 className="text-sm font-bold text-white">Gopal's Behavioral Audit</h2>
+                    <h2 className="text-sm font-bold text-white">
+                      Gopal's Behavioral Audit
+                    </h2>
                     <span className="text-[10px] font-mono text-[#00DF8F] bg-[#00DF8F]/10 px-1.5 py-0.2 rounded border border-[#00DF8F]/20">
                       SEBI Certified Logic
                     </span>
@@ -383,24 +512,40 @@ export const SmartSIPInterruptionModal: React.FC<SmartSIPInterruptionModalProps>
                 </div>
               </div>
 
-              <p className="text-xs text-slate-200 leading-relaxed bg-[#0B0F15]/80 p-3 rounded-xl border border-white/5">
-                "Rahul, before pausing your <strong className="text-white font-mono">{formatINR(currentSIP)}/mo</strong> SIP for {activeMonths} months, consider the long-term impact. Skipping installments forfeits high-margin unit accumulation and creates an estimated compounding shortfall of <strong className="text-red-400 font-mono">-{formatINR(impact.compoundedShortfall, true)}</strong>."
-              </p>
+              <div className="text-xs text-slate-200 leading-relaxed bg-[#0B0F15]/80 p-3 rounded-xl border border-white/5 min-h-[80px]">
+                {isFetchingAudit ? (
+                  <div className="space-y-2 animate-pulse">
+                    <div className="h-3 bg-white/10 rounded w-full"></div>
+                    <div className="h-3 bg-white/10 rounded w-5/6"></div>
+                    <div className="h-3 bg-white/10 rounded w-4/6"></div>
+                  </div>
+                ) : (
+                  <p>"{aiAuditText}"</p>
+                )}
+              </div>
             </div>
 
             {/* Impact Metric Chips */}
             <div className="grid grid-cols-3 gap-2 text-center font-mono">
               <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20">
                 <div className="text-[10px] text-red-400">Milestone Delay</div>
-                <div className="text-base font-bold text-red-400 mt-0.5">+{impact.driftMonths} mo</div>
+                <div className="text-base font-bold text-red-400 mt-0.5">
+                  +{impact.driftMonths} mo
+                </div>
               </div>
               <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20">
                 <div className="text-[10px] text-red-400">10Y Corpus Drag</div>
-                <div className="text-base font-bold text-red-400 mt-0.5">-{formatINR(impact.compoundedShortfall, true)}</div>
+                <div className="text-base font-bold text-red-400 mt-0.5">
+                  -{formatINR(impact.compoundedShortfall, true)}
+                </div>
               </div>
               <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20">
-                <div className="text-[10px] text-amber-400">Dip Units Missed</div>
-                <div className="text-base font-bold text-amber-400 mt-0.5">~{impact.unitsMissed}</div>
+                <div className="text-[10px] text-amber-400">
+                  Dip Units Missed
+                </div>
+                <div className="text-base font-bold text-amber-400 mt-0.5">
+                  ~{impact.unitsMissed}
+                </div>
               </div>
             </div>
 
@@ -411,29 +556,61 @@ export const SmartSIPInterruptionModal: React.FC<SmartSIPInterruptionModalProps>
                 <span>Choose a Smarter Alternative:</span>
               </div>
 
+              {/* PRIMARY: Cancel Pause & Continue SIP */}
+              <button
+                onClick={() => {
+                  haptics.tap("medium");
+                  onClose();
+                }}
+                className="w-full py-3.5 px-4 rounded-xl bg-[#00DF8F] hover:bg-[#00DF8F]/90 text-[#0B0F15] font-bold text-sm flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(0,223,143,0.2)] hover:shadow-[0_0_25px_rgba(0,223,143,0.3)] transition-all cursor-pointer transform active:scale-[0.98]"
+              >
+                <CheckCircle2 className="w-5 h-5 stroke-[2.5]" />
+                <span>Cancel & Continue SIP</span>
+              </button>
+
               {/* Option A: Step-Down SIP Amount (Gopal Recommendation) */}
               <div className="p-4 rounded-2xl bg-[#06291C]/70 border border-[#00DF8F]/30 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-mono text-[#00DF8F] bg-[#00DF8F]/20 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
                     Recommended to avoid loss
                   </span>
-                  <span className="text-[11px] font-mono text-slate-300">Cuts loss by 68%</span>
+                  <span className="text-[11px] font-mono text-slate-300">
+                    Cuts loss by ~67%
+                  </span>
                 </div>
                 <div>
                   <h3 className="text-xs sm:text-sm font-bold text-white">
-                    Step-down SIP to ₹5,000/mo instead
+                    Step-down SIP to {formatINR(suggestedStepDown)}/mo instead
                   </h3>
                   <p className="text-[11px] text-slate-300 mt-0.5 leading-relaxed">
-                    Preserves continuous rupee-cost averaging and unit accumulation while freeing up {formatINR(currentSIP - 5000)}/mo in cash flow immediately.
+                    Preserves continuous rupee-cost averaging and unit
+                    accumulation while freeing up{" "}
+                    {formatINR(currentSIP - suggestedStepDown)}/mo in cash flow
+                    immediately.
                   </p>
                 </div>
-                <button
-                  onClick={() => handleExecuteStepDown(5000)}
-                  className="w-full py-2.5 px-3 rounded-xl bg-[#00DF8F] hover:bg-[#00DF8F]/90 text-[#0B0F15] font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  <Check className="w-4 h-4 stroke-[3]" />
-                  <span>Apply Step-Down to ₹5,000/mo</span>
-                </button>
+                <div className="relative group">
+                  <button
+                    onClick={() => handleExecuteStepDown(suggestedStepDown)}
+                    disabled={!fund.mandate.stepDownAllowed}
+                    className={`w-full py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors border ${
+                      fund.mandate.stepDownAllowed
+                        ? "border-[#00DF8F]/40 bg-[#00DF8F]/10 hover:bg-[#00DF8F]/20 text-[#00DF8F] cursor-pointer"
+                        : "border-slate-700 bg-slate-800/50 text-slate-400 cursor-not-allowed opacity-70"
+                    }`}
+                  >
+                    <Check className="w-4 h-4 stroke-[3]" />
+                    <span>
+                      Apply Step-Down to {formatINR(suggestedStepDown)}/mo
+                    </span>
+                  </button>
+                  {!fund.mandate.stepDownAllowed && (
+                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 hidden group-hover:block w-max max-w-[220px] bg-[#121820] text-[10px] text-slate-300 p-2 rounded shadow-lg border border-white/10 whitespace-normal z-20 text-center">
+                      Step-down is not supported by {fund.mandate.autopayType}{" "}
+                      for this AMC.
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Option B: Shorten to 1-Month Skip */}
@@ -443,10 +620,14 @@ export const SmartSIPInterruptionModal: React.FC<SmartSIPInterruptionModalProps>
                     <span className="text-xs font-semibold text-white">
                       Reduce pause to 1 Month only
                     </span>
-                    <span className="text-[10px] font-mono text-slate-400">Saves ₹15,000 now</span>
+                    <span className="text-[10px] font-mono text-slate-400">
+                      Saves {formatINR(currentSIP)} now
+                    </span>
                   </div>
                   <p className="text-[11px] text-slate-400 leading-relaxed">
-                    Skips only the upcoming installment on {getCalculatedRestartDate(1)}, limiting total compounding drag to only ₹1.1L.
+                    Skips only the upcoming installment on{" "}
+                    {getCalculatedRestartDate(1)}, limiting total compounding
+                    drag.
                   </p>
                   <button
                     onClick={() => {
@@ -454,7 +635,7 @@ export const SmartSIPInterruptionModal: React.FC<SmartSIPInterruptionModalProps>
                       setIsCustom(false);
                       handleExecuteConfirmedPause();
                     }}
-                    className="w-full py-2 px-3 rounded-lg bg-white/10 hover:bg-white/15 text-white font-medium text-xs transition-colors cursor-pointer"
+                    className="w-full py-2 px-3 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white font-medium text-xs transition-colors cursor-pointer"
                   >
                     Switch to 1-Month Quick Skip
                   </button>
@@ -462,13 +643,15 @@ export const SmartSIPInterruptionModal: React.FC<SmartSIPInterruptionModalProps>
               )}
 
               {/* Option C: Proceed with Planned Pause */}
-              <div className="pt-1">
+              <div className="pt-2">
                 <button
                   onClick={handleExecuteConfirmedPause}
                   disabled={isSubmitting}
-                  className="w-full py-2.5 px-3 rounded-xl border border-white/10 hover:bg-white/5 text-slate-400 hover:text-white font-medium text-xs transition-colors cursor-pointer"
+                  className="w-full py-2.5 px-3 rounded-xl bg-transparent text-slate-500 hover:text-slate-300 font-medium text-xs transition-colors cursor-pointer"
                 >
-                  {isSubmitting ? 'Freezing NACH Mandate...' : `Proceed with ${activeMonths}-Month Pause (Auto-resumes ${restartDate})`}
+                  {isSubmitting
+                    ? "Freezing NACH Mandate..."
+                    : `Proceed with ${activeMonths}-Month Pause (Auto-resumes ${restartDate})`}
                 </button>
               </div>
             </div>
@@ -476,21 +659,26 @@ export const SmartSIPInterruptionModal: React.FC<SmartSIPInterruptionModalProps>
         )}
 
         {/* PHASE 3: SUCCESS CONFIRMATION */}
-        {phase === 'success' && (
+        {phase === "success" && (
           <div className="p-6 sm:p-8 flex flex-col items-center text-center space-y-4">
             <div className="w-12 h-12 rounded-full bg-[#00DF8F]/20 text-[#00DF8F] flex items-center justify-center">
               <CheckCircle2 className="w-7 h-7" />
             </div>
 
             <div>
-              <h2 className="text-lg font-bold text-white">Mandate Successfully Frozen</h2>
+              <h2 className="text-lg font-bold text-white">
+                Mandate Successfully Frozen
+              </h2>
               <p className="text-xs text-slate-400 font-mono mt-1 max-w-sm">
-                SIP of {formatINR(currentSIP)} in {fund.name.split('-')[0].trim()} is paused for {activeMonths} months. Auto-restart scheduled for {restartDate}.
+                SIP of {formatINR(currentSIP)} in{" "}
+                {fund.name.split("-")[0].trim()} is paused for {activeMonths}{" "}
+                months. Auto-restart scheduled for {restartDate}.
               </p>
             </div>
 
             <div className="w-full p-3 rounded-xl bg-[#121820] border border-white/10 text-xs font-mono text-slate-300">
-              Zero Paperwork Resumption • NPCI Ref: NACH-FRZ-{Date.now().toString().slice(-6)}
+              Zero Paperwork Resumption • NPCI Ref: NACH-FRZ-
+              {Date.now().toString().slice(-6)}
             </div>
 
             <button

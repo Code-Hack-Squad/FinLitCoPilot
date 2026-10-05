@@ -10,6 +10,8 @@ import {
   Plus,
   ArrowUp,
   Info,
+  AlertTriangle,
+  Minus,
 } from 'lucide-react';
 import { haptics } from '@/lib/haptics';
 
@@ -30,6 +32,9 @@ export const FundOverviewView: React.FC<FundOverviewViewProps> = ({
 }) => {
   const [timeframe, setTimeframe] = useState<'1Y' | '3Y' | 'All'>('3Y');
   const [activeTooltip, setActiveTooltip] = useState<boolean>(true);
+  const [showWithdrawAlert, setShowWithdrawAlert] = useState<boolean>(false);
+  const [isFetchingWithdraw, setIsFetchingWithdraw] = useState<boolean>(false);
+  const [withdrawWarning, setWithdrawWarning] = useState<string>('');
 
   // SVG dimensions for growth trajectory curve
   const width = 360;
@@ -41,7 +46,11 @@ export const FundOverviewView: React.FC<FundOverviewViewProps> = ({
   const principalVal = fund.investedAmount;
 
   // Computed coordinates for smooth upward curve
-  const curvePath = `M 20,135 Q 120,110 200,65 T 340,30`;
+  const curvePath = timeframe === '1Y' 
+    ? `M 20,135 Q 150,120 250,90 T 340,30`
+    : timeframe === '3Y'
+    ? `M 20,135 Q 120,110 200,65 T 340,30`
+    : `M 20,135 Q 100,100 180,50 T 340,30`;
   const principalPath = `M 20,138 L 340,90`;
 
   return (
@@ -248,17 +257,43 @@ export const FundOverviewView: React.FC<FundOverviewViewProps> = ({
 
       {/* Docked Action Buttons */}
       <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#0B0F15]/95 backdrop-blur-md border-t border-white/10 p-3">
-        <div className="max-w-xl mx-auto flex items-center gap-3 relative">
+        <div className="max-w-xl mx-auto flex items-center gap-2 sm:gap-3 relative">
           {/* Pause or Adjust button */}
           <button
             onClick={() => {
               haptics.tap('light');
               onOpenPause(fund);
             }}
-            className="flex-1 py-3 px-4 rounded-xl bg-[#121820] hover:bg-[#18202A] text-slate-200 border border-white/10 font-semibold text-xs flex items-center justify-center gap-2 active:scale-[0.98] transition-all cursor-pointer"
+            className="flex-1 py-3 px-2 rounded-xl bg-[#121820] hover:bg-[#18202A] text-slate-200 border border-white/10 font-semibold text-[11px] sm:text-xs flex items-center justify-center gap-1 sm:gap-2 active:scale-[0.98] transition-all cursor-pointer"
           >
-            <Pause className="w-3.5 h-3.5" />
-            <span>Pause or Adjust</span>
+            <Pause className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">Pause</span>
+          </button>
+
+          {/* Withdraw button */}
+          <button
+            onClick={async () => {
+              haptics.tap('light');
+              setShowWithdrawAlert(true);
+              setIsFetchingWithdraw(true);
+              try {
+                const res = await fetch('/api/gopal/withdraw', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ fund })
+                });
+                const data = await res.json();
+                setWithdrawWarning(data.warningText || 'The market is currently down by 10%. Withdrawing your funds now will permanently lock in your losses. Historically, markets recover within a few months.');
+              } catch (e) {
+                setWithdrawWarning('The market is currently down by 10%. Withdrawing your funds now will permanently lock in your losses. Historically, markets recover within a few months.');
+              } finally {
+                setIsFetchingWithdraw(false);
+              }
+            }}
+            className="flex-1 py-3 px-2 rounded-xl bg-[#121820] hover:bg-[#18202A] text-slate-200 border border-white/10 font-semibold text-[11px] sm:text-xs flex items-center justify-center gap-1 sm:gap-2 active:scale-[0.98] transition-all cursor-pointer"
+          >
+            <Minus className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">Withdraw</span>
           </button>
 
           {/* + Add Lump Sum button */}
@@ -267,10 +302,10 @@ export const FundOverviewView: React.FC<FundOverviewViewProps> = ({
               haptics.tap('light');
               onOpenDeposit(fund);
             }}
-            className="flex-1 py-3 px-4 rounded-xl bg-[#00DF8F] hover:bg-[#00DF8F]/90 text-[#0B0F15] font-bold text-xs flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all cursor-pointer shadow-sm"
+            className="flex-[1.5] py-3 px-2 rounded-xl bg-[#00DF8F] hover:bg-[#00DF8F]/90 text-[#0B0F15] font-bold text-[11px] sm:text-xs flex items-center justify-center gap-1 sm:gap-1.5 active:scale-[0.98] transition-all cursor-pointer shadow-sm"
           >
-            <Plus className="w-4 h-4 stroke-[2.5]" />
-            <span>Add Lump Sum</span>
+            <Plus className="w-4 h-4 stroke-[2.5] shrink-0" />
+            <span className="truncate">Add Lumpsum</span>
           </button>
 
           {/* Floating Gopal Avatar pill */}
@@ -295,6 +330,56 @@ export const FundOverviewView: React.FC<FundOverviewViewProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Withdraw AI Alert Modal */}
+      {showWithdrawAlert && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm select-none">
+          <div className="w-full max-w-sm bg-[#0B0F15] border border-red-500/30 rounded-3xl p-5 shadow-[0_0_40px_rgba(239,68,68,0.15)] flex flex-col space-y-4 text-white">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-red-400">🛑 Gopal AI Warning</h3>
+                {isFetchingWithdraw ? (
+                  <div className="mt-2 space-y-2 animate-pulse min-h-[60px]">
+                    <div className="text-xs text-slate-400 font-mono mb-2">Gopal is analyzing withdrawal impact...</div>
+                    <div className="h-2 bg-red-500/20 rounded w-full"></div>
+                    <div className="h-2 bg-red-500/20 rounded w-5/6"></div>
+                    <div className="h-2 bg-red-500/20 rounded w-4/6"></div>
+                  </div>
+                ) : (
+                  <p className="text-[13px] text-slate-300 mt-1 leading-relaxed">
+                    {withdrawWarning}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                onClick={() => {
+                  haptics.tap('medium');
+                  setShowWithdrawAlert(false);
+                }}
+                className="w-full py-3 px-4 rounded-xl bg-[#00DF8F] hover:bg-[#00DF8F]/90 text-[#0B0F15] font-bold text-sm shadow-[0_0_15px_rgba(0,223,143,0.2)] transition-all active:scale-[0.98] cursor-pointer"
+              >
+                Cancel Withdrawal (Recommended)
+              </button>
+              
+              <button
+                onClick={() => {
+                  haptics.tap('light');
+                  setShowWithdrawAlert(false);
+                }}
+                className="w-full py-2.5 px-4 rounded-xl border border-transparent text-slate-500 hover:text-slate-300 font-medium text-xs transition-colors cursor-pointer"
+              >
+                Proceed to Withdraw
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
